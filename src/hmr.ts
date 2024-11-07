@@ -2,7 +2,7 @@ declare global {
   interface Document {
     hmrModuleCache: Map<string, any>;
     getModuleFromCache: (path: string, module: string) => any;
-    addModuleToCache: (path: string) => any;
+    addModuleToCache: (path: string, t: number) => any;
   }
 }
 // @ts-ignore
@@ -20,18 +20,21 @@ document.getModuleFromCache = async (path: string) => {
       return newModule;
     }
   } catch (err) {
+    console.log(err);
     throw new Error(`[S-server] Unable to fetch module at ${path}`);
   }
 };
 
-document.addModuleToCache = async (path: string) => {
+// Relative routes
+document.addModuleToCache = async (path: string, t: number) => {
   try {
-    const newModule = await import(path);
+    const newModule = await import(`./${path}?t=${t}`);
     if (newModule) {
-      document.hmrModuleCache.set(path, newModule);
+      document.hmrModuleCache.set(`./${path}`, newModule);
     }
     return newModule;
   } catch (err) {
+    console.log(err);
     throw new Error(`[S-server] Unable to fetch module at ${path}`);
   }
 };
@@ -81,8 +84,8 @@ function handleEvent(event: hmrPayload) {
       alertListener(event);
     case "js:update":
       alertListener(event);
-    case "reload":
-      location.reload();
+    // case "reload":
+    //   location.reload();
   }
 }
 
@@ -116,8 +119,15 @@ function getAndUpdateStyle(event: hmrPayload) {
 }
 
 function getAndUpdateScript(event: hmrPayload) {
-  document.addModuleToCache(event.path);
+  document.addModuleToCache(event.path, event.timestamp);
+}
+
+function handleWarnings(event: hmrPayload) {
+  console.warn(
+    `[S-server] Error: can't properly monitor changes in  ${event.path}, changes in this file will cause full-reload`
+  );
 }
 
 listenersMap.set("style:update", getAndUpdateStyle);
 listenersMap.set("js:update", getAndUpdateScript);
+listenersMap.set("warning", handleWarnings);

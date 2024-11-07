@@ -18,7 +18,7 @@ export default function extractAndReplaceImports(code) {
             lines = lines.map((line) => {
                 return line.replace(matchRegex, (match) => {
                     console.log(match);
-                    return `(await document.getModuleFromCache("${modulePath}")).default`;
+                    return `(await document.getModuleFromCache("${modulePath}"))`;
                 });
             });
         }
@@ -36,7 +36,7 @@ export default function extractAndReplaceImports(code) {
                     const matchRegex = new RegExp(String.raw `(?<!\bconst\s+\w+\s*=\s*${value}\b)(?<!\blet\s+\w+\s*=\s*${value}\b)(?<!\bvar\s+\w+\s*=\s*${value}\b)\b${value}\b`);
                     tmp = tmp.replace(matchRegex, (match) => {
                         console.log(match);
-                        return `(await document.getModuleFromCache("${modulePath}")).default`;
+                        return `(await document.getModuleFromCache("${modulePath}"))`;
                     });
                 });
                 return tmp;

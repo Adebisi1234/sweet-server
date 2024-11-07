@@ -8,7 +8,14 @@ import { WebSocketServer } from "ws";
 import Watcher from "watcher";
 import compression from "compression";
 import mime from "mime";
-import extractAndReplaceImports from "./hmr-context.js";
+// const acorn = Parser.extend(
+//   classMethods,
+//   staticClassMethods,
+//   privateMethods,
+//   privateElements,
+//   stage3
+// );
+import babelParser from "@babel/parser";
 // Watching a single path
 const watcher = new Watcher(process.cwd(), {
     ignore: (path) => path.includes(".git") || path.includes("node_modules"),
@@ -16,22 +23,8 @@ const watcher = new Watcher(process.cwd(), {
 });
 app.use(compression());
 // Custom files
-app.get("/", async (req, res) => {
-    const filePath = path.join(process.cwd(), "index.html");
-    let contents = await fsPromise.readFile(filePath, { encoding: "utf8" });
-    if (contents.includes("</head>")) {
-        contents = contents.replace("</head>", `<!-- Injected by S-server -->
-      <script src="/hmr.js" type='module'></script>
-      </head>`);
-    }
-    else {
-        // Accounting for html files with no head tag
-        contents = contents.replace("</body>", `<!-- Injected by S-server -->
-      <script src="/hmr.js" type='module'></script>
-      </body>`);
-    }
-    return res.send(contents);
-});
+app.get("/", addHmrModuleToDOM);
+app.get("*.html", addHmrModuleToDOM);
 app.get("/hmr.js", async (req, res) => {
     const filePath = new URL("./hmr.js", import.meta.url);
     let hmr = await fsPromise.readFile(filePath, { encoding: "utf8" });
@@ -46,36 +39,113 @@ app.get("/hmr-context.js", async (req, res) => {
     res.setHeader("Content-type", contentType);
     return res.send(hmr);
 });
-// app.use(express.static(process.cwd(), { cacheControl: false, etag: false }));
-app.get("*", customStaticServer);
+app.get("*.js", customStaticServer);
+async function addHmrModuleToDOM(req, res) {
+    const sanitizePath = path.normalize(req.path);
+    let filePath = path.join(process.cwd(), sanitizePath);
+    if (!fs.existsSync(filePath)) {
+        // if the file is not found, return 404
+        res.status(404).send(`File ${filePath} not found!`);
+        return;
+    }
+    // if is a directory, then look for index.html
+    if (fs.statSync(filePath).isDirectory()) {
+        filePath += "/index.html";
+    }
+    let contents = await fsPromise.readFile(filePath, { encoding: "utf8" });
+    if (contents.includes("<head>")) {
+        contents = contents.replace("<head>", `<head>
+      <!-- Injected by S-server -->
+      <script src="/hmr.js" type='module'></script>
+      `);
+    }
+    else {
+        // Accounting for html files with no head tag
+        contents = contents.replace("</body>", `<!-- Injected by S-server -->
+      <script src="/hmr.js" type='module'></script>
+      </body>`);
+    }
+    return res.send(contents);
+}
 async function customStaticServer(req, res) {
     try {
-        const sanitizePath = path.normalize(req.path).replace(/^(\.\.[\/\\])+/, "");
+        const sanitizePath = path.normalize(req.path);
         let pathname = path.join(process.cwd(), sanitizePath);
-        console.log({ pathname });
         if (!fs.existsSync(pathname)) {
             // if the file is not found, return 404
-            res.statusCode = 404;
-            res.send(`File ${pathname} not found!`);
+            res.status(404).send(`File ${pathname} not found!`);
+            return;
         }
-        // if is a directory, then look for index.html
-        if (fs.statSync(pathname).isDirectory()) {
-            pathname += "/index.html";
-        }
-        const contentType = mime.lookup(path.parse(pathname).ext.replace(".", ""));
         // read file from file system
-        const data = await fsPromise.readFile(pathname, { encoding: "utf8" });
+        let data = await fsPromise.readFile(pathname, { encoding: "utf8" });
+        if (path.parse(pathname).ext.replace(".", "") === "js") {
+            try {
+                await fsPromise.writeFile(pathname + "babel.json", JSON.stringify(babelParser.parse(data, {
+                    sourceType: "unambiguous",
+                })), {
+                    encoding: "utf8",
+                });
+                data = parseJSAndReplaceImport(data);
+            }
+            catch (error) {
+                console.log(error.message);
+                console.log(`Error can't properly monitor changes in  ${req.path}, changes in this file will cause full-reload`);
+                wss.clients.forEach((client) => {
+                    client.send(JSON.stringify({
+                        event: "change",
+                        path: req.path,
+                        timestamp: Date.now(),
+                        type: "error",
+                    }));
+                });
+            }
+        }
         // based on the URL path, extract the file extention. e.g. .js, .doc, ...
-        // if the file is found, set Content-type and send data
-        res.setHeader("Content-type", contentType || "text/plain");
-        return res.send(extractAndReplaceImports(data));
+        res.contentType(path.parse(pathname).ext);
+        return res.send(data);
     }
     catch (err) {
-        return res
-            .status(500)
-            .send(`Error getting the file: ${err}.`);
+        console.log(err);
+        return res.status(404).json(`Error getting the file.`);
     }
 }
+function parseJSAndReplaceImport(data) {
+    const program = babelParser.parse(data, {
+        sourceType: "unambiguous",
+    });
+    let hmrSupportData = data;
+    for (const statement of program.program.body) {
+        if (statement.type === "ImportDeclaration") {
+            const replaceLines = statement.specifiers.map((value) => {
+                if (value.type === "ImportDefaultSpecifier") {
+                    return `const ${value.local.name} = ${getModuleStore(statement.source.value)}.default`;
+                }
+                else if (value.type === "ImportNamespaceSpecifier") {
+                    return `const ${value.local.name} = ${getModuleStore(statement.source.value)}`;
+                }
+                else if (value.type === "ImportSpecifier") {
+                    return `const ${value.local.name} = ${getModuleStore(statement.source.value)}["${value.imported.type === "Identifier"
+                        ? value.imported.name
+                        : value.imported.value}"]`;
+                }
+                return "";
+            });
+            const replaceString = replaceLines.join(";\n");
+            // hmrSupportData =
+            //   hmrSupportData.slice(0, statement.start) +
+            //   replaceString +
+            //   hmrSupportData.slice(statement.end);
+            hmrSupportData = hmrSupportData.replace(data
+                .slice(statement.start ?? 0, statement.end ?? undefined)
+                .replace(/\n/g, ""), replaceString);
+        }
+    }
+    return hmrSupportData;
+}
+function getModuleStore(path) {
+    return `(await document.getModuleFromCache("${path}"))`;
+}
+app.use(express.static(process.cwd()));
 const port = process.env.PORT || 6001;
 const server = app.listen(port, () => {
     console.log(`App started  on port ${port}...`);

@@ -14,18 +14,21 @@ document.getModuleFromCache = async (path) => {
         }
     }
     catch (err) {
+        console.log(err);
         throw new Error(`[S-server] Unable to fetch module at ${path}`);
     }
 };
-document.addModuleToCache = async (path) => {
+// Relative routes
+document.addModuleToCache = async (path, t) => {
     try {
-        const newModule = await import(path);
+        const newModule = await import(`./${path}?t=${t}`);
         if (newModule) {
-            document.hmrModuleCache.set(path, newModule);
+            document.hmrModuleCache.set(`./${path}`, newModule);
         }
         return newModule;
     }
     catch (err) {
+        console.log(err);
         throw new Error(`[S-server] Unable to fetch module at ${path}`);
     }
 };
@@ -65,8 +68,8 @@ function handleEvent(event) {
             alertListener(event);
         case "js:update":
             alertListener(event);
-        case "reload":
-            location.reload();
+        // case "reload":
+        //   location.reload();
     }
 }
 function alertListener(event) {
@@ -94,8 +97,12 @@ function getAndUpdateStyle(event) {
     el.after(newLinkTag);
 }
 function getAndUpdateScript(event) {
-    document.addModuleToCache(event.path);
+    document.addModuleToCache(event.path, event.timestamp);
+}
+function handleWarnings(event) {
+    console.warn(`[S-server] Error: can't properly monitor changes in  ${event.path}, changes in this file will cause full-reload`);
 }
 listenersMap.set("style:update", getAndUpdateStyle);
 listenersMap.set("js:update", getAndUpdateScript);
+listenersMap.set("warning", handleWarnings);
 export {};

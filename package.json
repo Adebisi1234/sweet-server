@@ -15,6 +15,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@babel/parser": "^7.26.2",
+    "acorn": "^8.14.0",
+    "acorn-class-fields": "^1.0.0",
+    "acorn-private-class-elements": "^1.0.0",
+    "acorn-private-methods": "^1.0.0",
+    "acorn-stage3": "^4.0.0",
+    "acorn-static-class-features": "^1.0.0",
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
     "compression": "^1.7.4",
