@@ -1,21 +1,16 @@
 // @ts-ignore
 document.hmrModuleCache = new Map();
 document.getModuleFromCache = async (path) => {
-    try {
-        if (document.hmrModuleCache.has(path)) {
-            return document.hmrModuleCache.get(path);
-        }
-        else {
-            const newModule = await import(path);
-            if (newModule) {
-                document.hmrModuleCache.set(path, newModule);
-            }
-            return newModule;
-        }
+    console.log("fetching module...");
+    if (document.hmrModuleCache.has(path)) {
+        console.log("cache hit");
+        return document.hmrModuleCache.get(path);
     }
-    catch (err) {
-        console.log(err);
-        throw new Error(`[S-server] Unable to fetch module at ${path}`);
+    else {
+        console.log("cache miss");
+        const newModule = await import(path + `?t=${Date.now()}`);
+        document.hmrModuleCache.set(path, newModule);
+        return newModule;
     }
 };
 // Relative routes
@@ -66,10 +61,23 @@ function handleEvent(event) {
     switch (event.type) {
         case "style:update":
             alertListener(event);
+            break;
         case "js:update":
             alertListener(event);
-        // case "reload":
-        //   location.reload();
+            break;
+        case "reload":
+            location.reload();
+            break;
+        case "warning":
+            alertListener(event);
+            break;
+        // case "js:init":
+        //   alertListener(event);
+        //   break;
+        case "error":
+            alert("[S-server] Error occurred");
+            console.error(event);
+            break;
     }
 }
 function alertListener(event) {
@@ -102,7 +110,11 @@ function getAndUpdateScript(event) {
 function handleWarnings(event) {
     console.warn(`[S-server] Error: can't properly monitor changes in  ${event.path}, changes in this file will cause full-reload`);
 }
+function initModule(event) {
+    document.addModuleToCache(event.path, event.timestamp);
+}
 listenersMap.set("style:update", getAndUpdateStyle);
 listenersMap.set("js:update", getAndUpdateScript);
 listenersMap.set("warning", handleWarnings);
+listenersMap.set("js:init", initModule);
 export {};

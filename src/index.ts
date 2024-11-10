@@ -10,28 +10,13 @@ import Watcher from "watcher";
 import { hmrPayload } from "./types/payload.js";
 import compression from "compression";
 import mime from "mime";
-import extractAndReplaceImports from "./hmr-context.js";
-import { Parser } from "acorn";
-import privateMethods from "acorn-private-methods";
-import privateElements from "acorn-private-class-elements";
-import classMethods from "acorn-class-fields";
-import staticClassMethods from "acorn-static-class-features";
-import stage3 from "acorn-stage3";
-// const acorn = Parser.extend(
-//   classMethods,
-//   staticClassMethods,
-//   privateMethods,
-//   privateElements,
-//   stage3
-// );
-
 import babelParser from "@babel/parser";
+const modulePaths = new Set<string>();
 
 // Watching a single path
 const watcher = new Watcher(process.cwd(), {
   ignore: (path: string) =>
     path.includes(".git") || path.includes("node_modules"),
-  ignoreInitial: true,
 });
 
 app.use(compression());
@@ -103,21 +88,30 @@ async function customStaticServer(req: Request, res: Response) {
       res.status(404).send(`File ${pathname} not found!`);
       return;
     }
+    if (req.query.t) {
+      let data = await fsPromise.readFile(pathname, { encoding: "utf8" });
+      data = data.replace(`${req.path}`, `${req.path}?t=${req.query.t}`);
+      res.contentType(path.parse(pathname).ext);
+      return res.send(data) as unknown as void;
+      // return res.sendFile(pathname);
+    }
     // read file from file system
     let data = await fsPromise.readFile(pathname, { encoding: "utf8" });
     if (path.parse(pathname).ext.replace(".", "") === "js") {
       try {
-        await fsPromise.writeFile(
-          pathname + "babel.json",
-          JSON.stringify(
-            babelParser.parse(data, {
-              sourceType: "unambiguous",
-            })
-          ),
-          {
-            encoding: "utf8",
-          }
-        );
+        if (!fs.existsSync(pathname + "babel.json")) {
+          await fsPromise.writeFile(
+            pathname + "babel.json",
+            JSON.stringify(
+              babelParser.parse(data, {
+                sourceType: "unambiguous",
+              })
+            ),
+            {
+              encoding: "utf8",
+            }
+          );
+        }
         data = parseJSAndReplaceImport(data);
       } catch (error: any) {
         console.log(error.message);
@@ -136,7 +130,7 @@ async function customStaticServer(req: Request, res: Response) {
         });
       }
     }
-    // based on the URL path, extract the file extention. e.g. .js, .doc, ...
+    // based on the URL path, extract the file extension. e.g. .js, .doc, ...
     res.contentType(path.parse(pathname).ext);
     return res.send(data) as unknown as void;
   } catch (err) {
@@ -154,30 +148,44 @@ function parseJSAndReplaceImport(data: string) {
 
   for (const statement of program.program.body) {
     if (statement.type === "ImportDeclaration") {
-      const replaceLines = statement.specifiers.map((value) => {
+      const values: {
+        name: string;
+        type:
+          | "ImportDefaultSpecifier"
+          | "ImportNamespaceSpecifier"
+          | "ImportSpecifier";
+      }[] = [];
+      const modules: string[] = [];
+      const imports = statement.specifiers.map((value, i) => {
+        values.push({ name: value.local.name, type: value.type });
+        modules.push(`module${crypto.randomUUID().split("-")[0]}`);
         if (value.type === "ImportDefaultSpecifier") {
-          return `const ${value.local.name} = ${getModuleStore(
-            statement.source.value
-          )}.default`;
+          return `${getModuleStore(statement.source.value)}`;
         } else if (value.type === "ImportNamespaceSpecifier") {
-          return `const ${value.local.name} = ${getModuleStore(
-            statement.source.value
-          )}`;
+          return `${getModuleStore(statement.source.value)}`;
         } else if (value.type === "ImportSpecifier") {
-          return `const ${value.local.name} = ${getModuleStore(
-            statement.source.value
-          )}["${
-            value.imported.type === "Identifier"
-              ? value.imported.name
-              : value.imported.value
-          }"]`;
+          return `${getModuleStore(statement.source.value)}`;
         }
         return "";
       });
-      const replaceString = replaceLines.join(";\n");
+      const importString =
+        `const [${modules.join(", ")}] = await Promise.all([${imports.join(
+          ","
+        )}])` + "\n";
+      const modulesLines = modules.map((module, i) => {
+        return `const ${values[i].name} = ${module}${
+          values[i].type === "ImportDefaultSpecifier"
+            ? ".default"
+            : values[i].type === "ImportSpecifier"
+            ? `['${values[i].name}']`
+            : ""
+        };`;
+      });
+      const moduleString = modulesLines.join("\n");
+      const replaceString = importString + moduleString;
       // hmrSupportData =
       //   hmrSupportData.slice(0, statement.start) +
-      //   replaceString +
+      //   importString +
       //   hmrSupportData.slice(statement.end);
       hmrSupportData = hmrSupportData.replace(
         data
@@ -191,7 +199,7 @@ function parseJSAndReplaceImport(data: string) {
 }
 
 function getModuleStore(path: any) {
-  return `(await document.getModuleFromCache("${path}"))`;
+  return `document.getModuleFromCache("${path}")`;
 }
 
 app.use(express.static(process.cwd()));
@@ -206,6 +214,18 @@ const server = app.listen(port, () => {
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", function connection(ws) {
+  modulePaths.forEach((path) => {
+    wss.clients.forEach(function each(client) {
+      client.send(
+        JSON.stringify({
+          event: "change",
+          path,
+          timestamp: new Date().getTime(),
+          type: "js:init",
+        } satisfies hmrPayload)
+      );
+    });
+  });
   ws.on("error", console.error);
 
   ws.on("message", function message(data) {
@@ -226,7 +246,6 @@ watcher.on("close", () => {
   // The app just stopped watching and will not emit any further events
   console.log("file watcher closed");
 });
-
 watcher.on("change", (event) => {
   const split = event.split("/");
   const path: string = split[split.length - 1];
@@ -264,5 +283,13 @@ watcher.on("change", (event) => {
         } satisfies hmrPayload)
       ); // just use json no need to create my own binary protocol);
     });
+  }
+});
+
+watcher.on("add", (event) => {
+  const split = event.split("/");
+  const path: string = split[split.length - 1];
+  if (path.endsWith(".js")) {
+    modulePaths.add(path);
   }
 });

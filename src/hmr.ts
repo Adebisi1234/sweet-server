@@ -5,23 +5,19 @@ declare global {
     addModuleToCache: (path: string, t: number) => any;
   }
 }
-// @ts-ignore
 
+// @ts-ignore
 document.hmrModuleCache = new Map<string, any>();
 document.getModuleFromCache = async (path: string) => {
-  try {
-    if (document.hmrModuleCache.has(path)) {
-      return document.hmrModuleCache.get(path);
-    } else {
-      const newModule = await import(path);
-      if (newModule) {
-        document.hmrModuleCache.set(path, newModule);
-      }
-      return newModule;
-    }
-  } catch (err) {
-    console.log(err);
-    throw new Error(`[S-server] Unable to fetch module at ${path}`);
+  console.log("fetching module...");
+  if (document.hmrModuleCache.has(path)) {
+    console.log("cache hit");
+    return document.hmrModuleCache.get(path);
+  } else {
+    console.log("cache miss");
+    const newModule = await import(path + `?t=${Date.now()}`);
+    document.hmrModuleCache.set(path, newModule);
+    return newModule;
   }
 };
 
@@ -82,10 +78,23 @@ function handleEvent(event: hmrPayload) {
   switch (event.type) {
     case "style:update":
       alertListener(event);
+      break;
     case "js:update":
       alertListener(event);
-    // case "reload":
-    //   location.reload();
+      break;
+    case "reload":
+      location.reload();
+      break;
+    case "warning":
+      alertListener(event);
+      break;
+    // case "js:init":
+    //   alertListener(event);
+    //   break;
+    case "error":
+      alert("[S-server] Error occurred");
+      console.error(event);
+      break;
   }
 }
 
@@ -128,6 +137,11 @@ function handleWarnings(event: hmrPayload) {
   );
 }
 
+function initModule(event: hmrPayload) {
+  document.addModuleToCache(event.path, event.timestamp);
+}
+
 listenersMap.set("style:update", getAndUpdateStyle);
 listenersMap.set("js:update", getAndUpdateScript);
 listenersMap.set("warning", handleWarnings);
+listenersMap.set("js:init", initModule);
