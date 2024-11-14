@@ -1,10 +1,10 @@
 #counter {
   font-size: xx-large;
-  width: 100vw;
-  height: 30vh;
 }
 
-#background {
+#name {
   width: 100vw;
   height: 40vh;
+  font-size: xx-large;
+  color: brown;
 }

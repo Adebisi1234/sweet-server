@@ -24,3 +24,12 @@ Caveats
 
 - How do I recall a module???
 - - Using eval????
+
+Let say I have a main function that requires all the modules right
+and then runs it the first time
+
+Then on change it reruns.
+
+Will that break things
+
+For this not to break things I'll need to have a clear effect function that cleans up after the main function before rerun

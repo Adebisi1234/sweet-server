@@ -1,36 +1,8 @@
-// @ts-ignore
-document.hmrModuleCache = new Map();
-document.getModuleFromCache = async (path) => {
-    console.log("fetching module...");
-    if (document.hmrModuleCache.has(path)) {
-        console.log("cache hit");
-        return document.hmrModuleCache.get(path);
-    }
-    else {
-        console.log("cache miss");
-        const newModule = await import(path + `?t=${Date.now()}`);
-        document.hmrModuleCache.set(path, newModule);
-        return newModule;
-    }
-};
-// Relative routes
-document.addModuleToCache = async (path, t) => {
-    try {
-        const newModule = await import(`./${path}?t=${t}`);
-        if (newModule) {
-            document.hmrModuleCache.set(`./${path}`, newModule);
-        }
-        return newModule;
-    }
-    catch (err) {
-        console.log(err);
-        throw new Error(`[S-server] Unable to fetch module at ${path}`);
-    }
-};
 document.addEventListener("error", (event) => {
     console.error(event);
     console.log("[S-server] Error occurred");
 });
+import main from "./hmr-context.js";
 // Check if browser supports WebSockets
 if (typeof window.WebSocket === "undefined") {
     alert("Your browser does not support WebSockets. Please use a modern browser.");
@@ -87,7 +59,9 @@ function alertListener(event) {
     }
 }
 function getAndUpdateStyle(event) {
-    const el = Array.from(document.querySelectorAll("link")).find((e) => !oldLinkEls.has(e) && cleanUrl(e.href).includes(event.path));
+    if (!event.path)
+        return;
+    const el = Array.from(document.querySelectorAll("link")).find((e) => event.path && !oldLinkEls.has(e) && cleanUrl(e.href).includes(event.path));
     if (!el) {
         return;
     }
@@ -105,16 +79,21 @@ function getAndUpdateStyle(event) {
     el.after(newLinkTag);
 }
 function getAndUpdateScript(event) {
-    document.addModuleToCache(event.path, event.timestamp);
+    if (!event.paths)
+        return;
+    const changes = event.paths;
+    changes.forEach((path) => {
+        if (!window.moduleSrcStore.includes(path))
+            window.moduleSrcStore.push(path);
+    });
+    setTimeout(async () => {
+        await main(window.moduleSrcStore, changes);
+        console.log(`reloaded ${event.path}`);
+    }, 0);
 }
 function handleWarnings(event) {
-    console.warn(`[S-server] Error: can't properly monitor changes in  ${event.path}, changes in this file will cause full-reload`);
-}
-function initModule(event) {
-    document.addModuleToCache(event.path, event.timestamp);
+    console.warn(`[S-server] Error: can't properly monitor changes in the following paths ${JSON.stringify(event.paths)}, changes in this files will cause full-reload`);
 }
 listenersMap.set("style:update", getAndUpdateStyle);
 listenersMap.set("js:update", getAndUpdateScript);
 listenersMap.set("warning", handleWarnings);
-listenersMap.set("js:init", initModule);
-export {};
