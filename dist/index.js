@@ -8,10 +8,12 @@ import { WebSocketServer } from "ws";
 import Watcher from "watcher";
 import compression from "compression";
 import mime from "mime";
-import babelParser from "@babel/parser";
+import { build } from "esbuild";
+import { parse } from "node-html-parser";
 const modulePaths = new Set();
 // Watching a single path
 const watcher = new Watcher(process.cwd(), {
+    ignoreInitial: true,
     ignore: (path) => path.includes(".git") || path.includes("node_modules"),
 });
 app.use(compression());
@@ -46,10 +48,22 @@ async function addHmrModuleToDOM(req, res) {
         filePath += "/index.html";
     }
     let contents = await fsPromise.readFile(filePath, { encoding: "utf8" });
+    const root = parse(contents);
+    const moduleSrcStore = [];
+    root.querySelectorAll("script[type='module']").forEach((script) => {
+        if (script.getAttribute("src")) {
+            moduleSrcStore.push(script.getAttribute("src"));
+        }
+        script.remove();
+    });
     if (contents.includes("<head>")) {
-        contents = contents.replace("<head>", `<head>
+        contents = root.toString().replace("<head>", `<head>
       <!-- Injected by S-server -->
       <script src="/hmr.js" type='module'></script>
+      <script>
+        window.moduleSrcStore = ${JSON.stringify(moduleSrcStore)}
+      </script>
+      <script src="/hmr-context.js" type="module"></script>
       `);
     }
     else {
@@ -71,92 +85,19 @@ async function customStaticServer(req, res) {
         }
         if (req.query.t) {
             let data = await fsPromise.readFile(pathname, { encoding: "utf8" });
-            data = data.replace(`${req.path}`, `${req.path}?t=${req.query.t}`);
+            const paths = await invalidatedModuleList(pathname);
+            paths.forEach((path) => {
+                data.replace(path, path + `?t=${req.query.t}`);
+            });
             res.contentType(path.parse(pathname).ext);
             return res.send(data);
-            // return res.sendFile(pathname);
         }
-        // read file from file system
-        let data = await fsPromise.readFile(pathname, { encoding: "utf8" });
-        if (path.parse(pathname).ext.replace(".", "") === "js") {
-            try {
-                if (!fs.existsSync(pathname + "babel.json")) {
-                    await fsPromise.writeFile(pathname + "babel.json", JSON.stringify(babelParser.parse(data, {
-                        sourceType: "unambiguous",
-                    })), {
-                        encoding: "utf8",
-                    });
-                }
-                data = parseJSAndReplaceImport(data);
-            }
-            catch (error) {
-                console.log(error.message);
-                console.log(`Error can't properly monitor changes in  ${req.path}, changes in this file will cause full-reload`);
-                wss.clients.forEach((client) => {
-                    client.send(JSON.stringify({
-                        event: "change",
-                        path: req.path,
-                        timestamp: Date.now(),
-                        type: "error",
-                    }));
-                });
-            }
-        }
-        // based on the URL path, extract the file extension. e.g. .js, .doc, ...
-        res.contentType(path.parse(pathname).ext);
-        return res.send(data);
+        return res.sendFile(pathname);
     }
     catch (err) {
         console.log(err);
         return res.status(404).json(`Error getting the file.`);
     }
-}
-function parseJSAndReplaceImport(data) {
-    const program = babelParser.parse(data, {
-        sourceType: "unambiguous",
-    });
-    let hmrSupportData = data;
-    for (const statement of program.program.body) {
-        if (statement.type === "ImportDeclaration") {
-            const values = [];
-            const modules = [];
-            const imports = statement.specifiers.map((value, i) => {
-                values.push({ name: value.local.name, type: value.type });
-                modules.push(`module${crypto.randomUUID().split("-")[0]}`);
-                if (value.type === "ImportDefaultSpecifier") {
-                    return `${getModuleStore(statement.source.value)}`;
-                }
-                else if (value.type === "ImportNamespaceSpecifier") {
-                    return `${getModuleStore(statement.source.value)}`;
-                }
-                else if (value.type === "ImportSpecifier") {
-                    return `${getModuleStore(statement.source.value)}`;
-                }
-                return "";
-            });
-            const importString = `const [${modules.join(", ")}] = await Promise.all([${imports.join(",")}])` + "\n";
-            const modulesLines = modules.map((module, i) => {
-                return `const ${values[i].name} = ${module}${values[i].type === "ImportDefaultSpecifier"
-                    ? ".default"
-                    : values[i].type === "ImportSpecifier"
-                        ? `['${values[i].name}']`
-                        : ""};`;
-            });
-            const moduleString = modulesLines.join("\n");
-            const replaceString = importString + moduleString;
-            // hmrSupportData =
-            //   hmrSupportData.slice(0, statement.start) +
-            //   importString +
-            //   hmrSupportData.slice(statement.end);
-            hmrSupportData = hmrSupportData.replace(data
-                .slice(statement.start ?? 0, statement.end ?? undefined)
-                .replace(/\n/g, ""), replaceString);
-        }
-    }
-    return hmrSupportData;
-}
-function getModuleStore(path) {
-    return `document.getModuleFromCache("${path}")`;
 }
 app.use(express.static(process.cwd()));
 const port = process.env.PORT || 6001;
@@ -171,7 +112,7 @@ wss.on("connection", function connection(ws) {
         wss.clients.forEach(function each(client) {
             client.send(JSON.stringify({
                 event: "change",
-                path,
+                paths: [path],
                 timestamp: new Date().getTime(),
                 type: "js:init",
             }));
@@ -195,39 +136,59 @@ watcher.on("close", () => {
     // The app just stopped watching and will not emit any further events
     console.log("file watcher closed");
 });
-watcher.on("change", (event) => {
-    const split = event.split("/");
-    const path = split[split.length - 1];
-    console.log(`changes detected in ${path} reloading module`);
-    if (path.endsWith(".css")) {
-        wss.clients.forEach(function each(client) {
-            client.send(JSON.stringify({
-                event: "change",
-                path,
-                timestamp: new Date().getTime(),
-                type: "style:update",
-            })); // just use json no need to create my own binary protocol
-        });
+watcher.on("change", async (event) => {
+    try {
+        const split = event.split("/");
+        const path = split[split.length - 1];
+        console.log(`changes detected in ${path} reloading module`);
+        if (path.endsWith(".css")) {
+            wss.clients.forEach(function each(client) {
+                client.send(JSON.stringify({
+                    event: "change",
+                    path,
+                    timestamp: new Date().getTime(),
+                    type: "style:update",
+                })); // just use json no need to create my own binary protocol
+            });
+        }
+        else if (path.endsWith(".js")) {
+            console.log(path);
+            const paths = await invalidatedModuleList(path);
+            if (!paths || paths.length === 0) {
+                wss.clients.forEach(function each(client) {
+                    client.send(JSON.stringify({
+                        event: "change",
+                        path,
+                        timestamp: new Date().getTime(),
+                        type: "reload",
+                    })); // just use json no need to create my own binary protocol);
+                });
+                return;
+            }
+            console.log("dependencies", paths);
+            wss.clients.forEach(function each(client) {
+                client.send(JSON.stringify({
+                    event: "change",
+                    path,
+                    paths,
+                    timestamp: new Date().getTime(),
+                    type: "js:update",
+                })); // just use json no need to create my own binary protocol
+            });
+        }
+        else {
+            wss.clients.forEach(function each(client) {
+                client.send(JSON.stringify({
+                    event: "change",
+                    path,
+                    timestamp: new Date().getTime(),
+                    type: "reload",
+                })); // just use json no need to create my own binary protocol);
+            });
+        }
     }
-    else if (path.endsWith(".js")) {
-        wss.clients.forEach(function each(client) {
-            client.send(JSON.stringify({
-                event: "change",
-                path,
-                timestamp: new Date().getTime(),
-                type: "js:update",
-            })); // just use json no need to create my own binary protocol
-        });
-    }
-    else {
-        wss.clients.forEach(function each(client) {
-            client.send(JSON.stringify({
-                event: "change",
-                path,
-                timestamp: new Date().getTime(),
-                type: "reload",
-            })); // just use json no need to create my own binary protocol);
-        });
+    catch (err) {
+        console.error(`Error occurred listening to change at ${event}`, err);
     }
 });
 watcher.on("add", (event) => {
@@ -237,3 +198,41 @@ watcher.on("add", (event) => {
         modulePaths.add(path);
     }
 });
+async function analyzeInputs(pathname) {
+    const result = await build({
+        entryPoints: [pathname],
+        bundle: true,
+        write: false,
+        metafile: true,
+        platform: "node",
+        logLevel: "silent",
+        target: "esnext",
+        format: "esm",
+    });
+    let deps = {};
+    for (let [input, meta] of Object.entries(result.metafile.inputs)) {
+        for (let imp of meta.imports) {
+            let key = imp.path;
+            deps[key] = deps[key] || [];
+            deps[key].push(input);
+        }
+    }
+    return deps;
+}
+async function invalidatedModuleList(pathname) {
+    const deps = await analyzeInputs(pathname);
+    const paths = [];
+    let q = [pathname];
+    while (q.length > 0) {
+        let current = q.pop();
+        if (current) {
+            current = current.startsWith("/") ? current : "/" + current;
+            if (paths.includes(current))
+                continue;
+            paths.push(current);
+            let dependencies = deps[current] ?? [];
+            q.push(...dependencies);
+        }
+    }
+    return paths;
+}

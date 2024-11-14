@@ -1,9 +1,6 @@
-export default function a() {
-  return "Hello";
-}
+const counter = document.getElementById("counter");
 
-export function c() {
-  return "World";
-}
-
-console.log("testing");
+setInterval(() => {
+  if (!counter) return;
+  counter.textContent = `${parseInt(counter.textContent ?? "0") + 1}`;
+}, 1000);

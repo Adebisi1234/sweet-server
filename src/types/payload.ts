@@ -1,6 +1,7 @@
 export type hmrPayload = {
   event: "change";
-  path: string;
+  paths?: string[];
+  path?: string;
   timestamp: number;
   type:
     | "style:update"

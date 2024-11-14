@@ -1,5 +1,4 @@
-import * as a from "./module1.js";
-
-setInterval(async () => {
-  console.log(a.c());
-}, 500);
+const name = document.getElementById("name");
+if (name) {
+  name.textContent = "Tobiloba";
+}
