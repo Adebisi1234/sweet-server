@@ -9,6 +9,7 @@ import type { hmrPayload } from "./types/payload.js";
 declare global {
   interface Window {
     moduleSrcStore: string[];
+    __sserverPort: number;
   }
 }
 
@@ -20,7 +21,7 @@ if (typeof window.WebSocket === "undefined") {
   //Support other protocol maybe later
 }
 
-const ws = new WebSocket("ws://localhost:6001");
+const ws = new WebSocket(`ws://localhost:${window.__sserverPort}`);
 
 ws.addEventListener("message", async ({ data }) => {
   handleEvent(JSON.parse(data));
@@ -107,6 +108,12 @@ function getAndUpdateScript(event: hmrPayload) {
   });
 
   setTimeout(async () => {
+    changes.forEach(async (change) => {
+      const module = change.replace("/", "").replace(".js", "");
+      const cleanup = `__sserver_cleanup_${module}`;
+      typeof (window as any)[cleanup] !== "undefined" &&
+        (await (window as any)[cleanup]());
+    });
     await main(window.moduleSrcStore, changes);
     console.log(`reloaded ${event.path}`);
   }, 0);

@@ -1,35 +1,52 @@
-This server is meant to serve static files only
-HTML, CSS, JS (No framework support for now)
+### A simple static web server. Supports HMR, Made to be used mostly locally
 
-APPROACH:
+### This server is meant to serve static files only
 
-what do i want to do
+### HTML, CSS, JS (No framework support for now)
 
-HMR
+## Getting Started
 
-What is hmr
-hot module reload
-A case where file updates are reflected without reloading the entire app
+First, install globally:
 
-Caveats
+```bash
+npm i -g sserver
+```
 
-- Top level es modules triggers a reload
-- Only keep track of imports and exports
-- When a file changes, recall all modules using all imports from the file
-- - how do i do this
-- - - During the parsing process, in every function call that has the module export in it's props or body, pass the function name to the hmr client which stores it in the modules callback, and recalls when the modules change
-- But what if the return value is assigned to a variable or used in another function??
+Go to your project root directory and start the server there
 
-- Actually when a module changes, it should be it's dependencies that get's recall,
+```bash
+sserver
+```
 
-- How do I recall a module???
-- - Using eval????
+![Example image](./example.png)
 
-Let say I have a main function that requires all the modules right
-and then runs it the first time
+## Options
 
-Then on change it reruns.
+| Option         | Argument                                            | Default |
+| -------------- | --------------------------------------------------- | ------- |
+| `-p, --port`   | Specify which port sserver should run on e.g `4001` | `6001`  |
+| `-m, --mode`   | Specify server reload mode `hmr` or `no-hmr`        | `hmr`   |
+| `-g, --global` | Save other passed options as default                |         |
 
-Will that break things
+Open [http://localhost:6001](http://localhost:6001) with your browser to see the result.
 
-For this not to break things I'll need to have a clear effect function that cleans up after the main function before rerun
+You can start editing the page by modifying any file in your app directory. The page auto-updates as you edit the file.
+
+## Cleanup side effects during invalidation
+
+To cleanup side effects that might keep running after invalidation e.g setTimeout
+
+create a function named \__sserver_cleanup_`${module}` containing how to cleanup side effect and sserver will call it automatically
+
+# How it works
+
+```ts
+const module = change.replace("/", "").replace(".js", "");
+const cleanup = `__sserver_cleanup_${module}`;
+typeof (window as any)[cleanup] !== "undefined" &&
+  await(window as any)[cleanup]();
+```
+
+# TODO
+
+Add a way to persist state between replacements

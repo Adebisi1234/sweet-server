@@ -10,19 +10,73 @@ import Watcher from "watcher";
 import { hmrPayload } from "./types/payload.js";
 import compression from "compression";
 import mime from "mime";
-import babelParser from "@babel/parser";
-import { analyzeMetafile, build } from "esbuild";
+import { build } from "esbuild";
 import { parse } from "node-html-parser";
+import { program } from "commander";
+import chalk from "chalk";
+import Conf from "conf";
+import { httpServerStart } from "./utils.js";
 
-const modulePaths = new Set<string>();
+const config = new Conf({ projectName: "sserver" });
+// config.set('unicorn', '🦄');
+// console.log(config.get('unicorn'));
+// //=> '🦄'
 
-// Watching a single path
+// // Use dot-notation to access nested properties
+// config.set('foo.bar', true);
+// console.log(config.get('foo'));
+// //=> {bar: true}
+
+// config.delete('unicorn');
+// console.log(config.get('unicorn'));
+// //=> undefined
+
+program
+  .name("sserver")
+  .description(
+    "A simple static web server. Supports HMR, Made to be used mostly locally"
+  )
+  .version("1.0.0");
+
+program
+  .option("-p --port [6001]", "Specify which port sserver should run on")
+  .option(
+    "-m, --mode [hmr | no-hmr]",
+    "Specify server mode hmr | no-hmr",
+    "hmr"
+  )
+  .option("-g --global", "Set all env passed as global");
+
+program.parse();
+
+const options = program.opts();
+// Set global options
+if (options.global) {
+  for (const option in options) {
+    if (Object.prototype.hasOwnProperty.call(options, option)) {
+      if (option !== "global" && typeof options[option] !== "boolean") {
+        config.set(option, options[option]);
+      }
+    }
+  }
+}
+
+const port = Number(
+  options.port && typeof options.port !== "boolean"
+    ? options.port
+    : config.get("port") ?? 6001
+);
+const mode =
+  options.mode && typeof options.mode !== "boolean"
+    ? options.mode
+    : config.get("mode") ?? "hmr";
+// Watching the current working directory
 const watcher = new Watcher(process.cwd(), {
   ignoreInitial: true,
   ignore: (path: string) =>
     path.includes(".git") || path.includes("node_modules"),
 });
-
+// Gzip
 app.use(compression());
 
 // Custom files
@@ -47,6 +101,7 @@ app.get("/hmr-context.js", async (req, res) => {
   return res.send(hmr) as unknown as void;
 });
 
+// HMR support
 app.get("*.js", customStaticServer);
 async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
   const sanitizePath = path.normalize(req.path);
@@ -76,10 +131,11 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
       "<head>",
       `<head>
       <!-- Injected by S-server -->
-      <script src="/hmr.js" type='module'></script>
       <script>
+        window.__sserverPort = ${port}
         window.moduleSrcStore = ${JSON.stringify(moduleSrcStore)}
       </script>
+      <script src="/hmr.js" type='module'></script>
       <script src="/hmr-context.js" type="module"></script>
       `
     );
@@ -120,31 +176,20 @@ async function customStaticServer(req: Request, res: Response) {
     return res.status(404).json(`Error getting the file.`) as unknown as void;
   }
 }
-
+// Static web server for other resources
 app.use(express.static(process.cwd()));
-const port = process.env.PORT || 6001;
 
-const server = app.listen(port, () => {
-  console.log(`App started  on port ${port}...`);
-  console.log(process.cwd());
-});
-
+const server = await httpServerStart(app, port);
+// process.on("uncaughtException", (error: any, origin) => {
+//   console.log(error);
+//   if (error.code) {
+//     server.listen(Number(options.port) + 1);
+//   }
+// });
 // Websocket initialization
 const wss = new WebSocketServer({ server });
 
 wss.on("connection", function connection(ws) {
-  modulePaths.forEach((path) => {
-    wss.clients.forEach(function each(client) {
-      client.send(
-        JSON.stringify({
-          event: "change",
-          paths: [path],
-          timestamp: new Date().getTime(),
-          type: "js:init",
-        } satisfies hmrPayload)
-      );
-    });
-  });
   ws.on("error", console.error);
 
   ws.on("message", function message(data) {
@@ -167,24 +212,55 @@ watcher.on("close", () => {
 });
 watcher.on("change", async (event) => {
   try {
-    const split = event.split("/");
-    const path: string = split[split.length - 1];
-    console.log(`changes detected in ${path} reloading module`);
-    if (path.endsWith(".css")) {
-      wss.clients.forEach(function each(client) {
-        client.send(
-          JSON.stringify({
-            event: "change",
-            path,
-            timestamp: new Date().getTime(),
-            type: "style:update",
-          } satisfies hmrPayload)
-        ); // just use json no need to create my own binary protocol
-      });
-    } else if (path.endsWith(".js")) {
-      console.log(path);
-      const paths = await invalidatedModuleList(path);
-      if (!paths || paths.length === 0) {
+    if (mode === "hmr") {
+      const split = event.split("/");
+      const path: string = split[split.length - 1];
+      console.log(
+        chalk.yellow(
+          `changes detected in `,
+          `${chalk.bold(path)} reloading module`
+        )
+      );
+      if (path.endsWith(".css")) {
+        wss.clients.forEach(function each(client) {
+          client.send(
+            JSON.stringify({
+              event: "change",
+              path,
+              timestamp: new Date().getTime(),
+              type: "style:update",
+            } satisfies hmrPayload)
+          ); // just use json no need to create my own binary protocol
+        });
+      } else if (path.endsWith(".js")) {
+        console.log(path);
+        const paths = await invalidatedModuleList(path);
+        if (!paths || paths.length === 0) {
+          wss.clients.forEach(function each(client) {
+            client.send(
+              JSON.stringify({
+                event: "change",
+                path,
+                timestamp: new Date().getTime(),
+                type: "reload",
+              } satisfies hmrPayload)
+            ); // just use json no need to create my own binary protocol);
+          });
+          return;
+        }
+        console.log("dependencies", paths);
+        wss.clients.forEach(function each(client) {
+          client.send(
+            JSON.stringify({
+              event: "change",
+              path,
+              paths,
+              timestamp: new Date().getTime(),
+              type: "js:update",
+            } satisfies hmrPayload)
+          ); // just use json no need to create my own binary protocol
+        });
+      } else {
         wss.clients.forEach(function each(client) {
           client.send(
             JSON.stringify({
@@ -195,26 +271,13 @@ watcher.on("change", async (event) => {
             } satisfies hmrPayload)
           ); // just use json no need to create my own binary protocol);
         });
-        return;
       }
-      console.log("dependencies", paths);
-      wss.clients.forEach(function each(client) {
-        client.send(
-          JSON.stringify({
-            event: "change",
-            path,
-            paths,
-            timestamp: new Date().getTime(),
-            type: "js:update",
-          } satisfies hmrPayload)
-        ); // just use json no need to create my own binary protocol
-      });
     } else {
+      console.log(chalk.yellow(`changes detected reloading app`));
       wss.clients.forEach(function each(client) {
         client.send(
           JSON.stringify({
             event: "change",
-            path,
             timestamp: new Date().getTime(),
             type: "reload",
           } satisfies hmrPayload)
@@ -226,14 +289,7 @@ watcher.on("change", async (event) => {
   }
 });
 
-watcher.on("add", (event) => {
-  const split = event.split("/");
-  const path: string = split[split.length - 1];
-  if (path.endsWith(".js")) {
-    modulePaths.add(path);
-  }
-});
-
+// Get dependency list for updated
 async function analyzeInputs(pathname: string) {
   const result = await build({
     entryPoints: [pathname],
