@@ -11,7 +11,7 @@ export default async function main(
       dispatchEvent(new Event("load"));
     })
     .catch((reason) =>
-      console.error(`[T-server] error reloading modules, reason: ${reason}`)
+      console.error(`[hmrServer] error reloading modules, reason: ${reason}`)
     );
 
   console.log("reload complete");

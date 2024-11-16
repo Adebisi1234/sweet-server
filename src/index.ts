@@ -5,7 +5,7 @@ import fsPromise from "fs/promises";
 import fs from "fs";
 import path from "path";
 const app = express();
-import { WebSocketServer } from "ws";
+import { WebSockehmrServer } from "ws";
 import Watcher from "watcher";
 import { hmrPayload } from "./types/payload.js";
 import compression from "compression";
@@ -17,7 +17,7 @@ import chalk from "chalk";
 import Conf from "conf";
 import { httpServerStart } from "./utils.js";
 
-const config = new Conf({ projectName: "tserver" });
+const config = new Conf({ projectName: "hmrServer" });
 // config.set('unicorn', '🦄');
 // console.log(config.get('unicorn'));
 // //=> '🦄'
@@ -32,14 +32,14 @@ const config = new Conf({ projectName: "tserver" });
 // //=> undefined
 
 program
-  .name("tserver")
+  .name("hmrServer")
   .description(
     "A simple static web server. Supports HMR, Made to be used mostly locally"
   )
   .version("1.0.0");
 
 program
-  .option("-p --port [6001]", "Specify which port tserver should run on")
+  .option("-p --port [6001]", "Specify which port hmrServer should run on")
   .option(
     "-m, --mode [hmr | no-hmr]",
     "Specify server mode hmr | no-hmr",
@@ -130,9 +130,9 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
     contents = root.toString().replace(
       "<head>",
       `<head>
-      <!-- Injected by T-server -->
+      <!-- Injected by hmrServer -->
       <script>
-        window.__tserverPort = ${port}
+        window.__hmrServerPort = ${port}
         window.moduleSrcStore = ${JSON.stringify(moduleSrcStore)}
       </script>
       <script src="/hmr.js" type='module'></script>
@@ -143,7 +143,7 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
     // Accounting for html files with no head tag
     contents = contents.replace(
       "</body>",
-      `<!-- Injected by T-server -->
+      `<!-- Injected by hmrServer -->
       <script src="/hmr.js" type='module'></script>
       </body>`
     );
@@ -187,7 +187,7 @@ const server = await httpServerStart(app, port);
 //   }
 // });
 // Websocket initialization
-const wss = new WebSocketServer({ server });
+const wss = new WebSockehmrServer({ server });
 
 wss.on("connection", function connection(ws) {
   ws.on("error", console.error);
