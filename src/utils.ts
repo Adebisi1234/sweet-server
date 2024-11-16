@@ -22,7 +22,7 @@ export async function httpServerStart(
         );
         if (port - initialPort >= 30) {
           console.error(
-            "port difference exceeded 30 please restart sserver with an open port"
+            "port difference exceeded 30 please restart tserver with an open port"
           );
           process.exitCode = 1;
         }

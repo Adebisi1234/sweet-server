@@ -1,6 +1,6 @@
 document.addEventListener("error", (event) => {
     console.error(event);
-    console.log("[S-server] Error occurred");
+    console.log("[T-server] Error occurred");
 });
 import main from "./hmr-context.js";
 // Check if browser supports WebSockets
@@ -13,10 +13,10 @@ ws.addEventListener("message", async ({ data }) => {
     handleEvent(JSON.parse(data));
 });
 ws.addEventListener("open", async () => {
-    console.log("Connected to s-server");
+    console.log("Connected to T-server");
 });
 ws.addEventListener("error", async () => {
-    console.log("[S-server] Error");
+    console.log("[T-server] Error");
 });
 ws.addEventListener("close", async () => {
     console.log("Connection closed");
@@ -47,7 +47,7 @@ function handleEvent(event) {
         //   alertListener(event);
         //   break;
         case "error":
-            alert("[S-server] Error occurred");
+            alert("[T-server] Error occurred");
             console.error(event);
             break;
     }
@@ -98,7 +98,7 @@ function getAndUpdateScript(event) {
     }, 0);
 }
 function handleWarnings(event) {
-    console.warn(`[S-server] Error: can't properly monitor changes in the following paths ${JSON.stringify(event.paths)}, changes in this files will cause full-reload`);
+    console.warn(`[T-server] Error: can't properly monitor changes in the following paths ${JSON.stringify(event.paths)}, changes in this files will cause full-reload`);
 }
 listenersMap.set("style:update", getAndUpdateStyle);
 listenersMap.set("js:update", getAndUpdateScript);

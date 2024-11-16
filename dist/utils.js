@@ -10,7 +10,7 @@ export async function httpServerStart(httpServer, port) {
             if (e.code === "EADDRINUSE") {
                 console.info(chalk.yellow(`Port ${chalk.bold(`${port}`)} is in use, trying another one...`));
                 if (port - initialPort >= 30) {
-                    console.error("port difference exceeded 30 please restart sserver with an open port");
+                    console.error("port difference exceeded 30 please restart tserver with an open port");
                     process.exitCode = 1;
                 }
                 server.listen(++port);

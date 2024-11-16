@@ -3,7 +3,7 @@ export default async function main(moduleSrcStore, changes) {
         .then(() => {
         dispatchEvent(new Event("load"));
     })
-        .catch((reason) => console.error(`[S-server] error reloading modules, reason: ${reason}`));
+        .catch((reason) => console.error(`[T-server] error reloading modules, reason: ${reason}`));
     console.log("reload complete");
 }
 window.addEventListener("DOMContentLoaded", async () => {

@@ -17,7 +17,7 @@ import chalk from "chalk";
 import Conf from "conf";
 import { httpServerStart } from "./utils.js";
 
-const config = new Conf({ projectName: "sserver" });
+const config = new Conf({ projectName: "tserver" });
 // config.set('unicorn', '🦄');
 // console.log(config.get('unicorn'));
 // //=> '🦄'
@@ -32,14 +32,14 @@ const config = new Conf({ projectName: "sserver" });
 // //=> undefined
 
 program
-  .name("sserver")
+  .name("tserver")
   .description(
     "A simple static web server. Supports HMR, Made to be used mostly locally"
   )
   .version("1.0.0");
 
 program
-  .option("-p --port [6001]", "Specify which port sserver should run on")
+  .option("-p --port [6001]", "Specify which port tserver should run on")
   .option(
     "-m, --mode [hmr | no-hmr]",
     "Specify server mode hmr | no-hmr",
@@ -130,9 +130,9 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
     contents = root.toString().replace(
       "<head>",
       `<head>
-      <!-- Injected by S-server -->
+      <!-- Injected by T-server -->
       <script>
-        window.__sserverPort = ${port}
+        window.__tserverPort = ${port}
         window.moduleSrcStore = ${JSON.stringify(moduleSrcStore)}
       </script>
       <script src="/hmr.js" type='module'></script>
@@ -143,7 +143,7 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
     // Accounting for html files with no head tag
     contents = contents.replace(
       "</body>",
-      `<!-- Injected by S-server -->
+      `<!-- Injected by T-server -->
       <script src="/hmr.js" type='module'></script>
       </body>`
     );

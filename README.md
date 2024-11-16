@@ -9,13 +9,13 @@
 First, install globally:
 
 ```bash
-npm i -g sserver
+npm i -g tserver
 ```
 
 Go to your project root directory and start the server there
 
 ```bash
-sserver
+tserver
 ```
 
 ![Example image](./example.png)
@@ -24,7 +24,7 @@ sserver
 
 | Option         | Argument                                            | Default |
 | -------------- | --------------------------------------------------- | ------- |
-| `-p, --port`   | Specify which port sserver should run on e.g `4001` | `6001`  |
+| `-p, --port`   | Specify which port tserver should run on e.g `4001` | `6001`  |
 | `-m, --mode`   | Specify server reload mode `hmr` or `no-hmr`        | `hmr`   |
 | `-g, --global` | Save other passed options as default                |         |
 
@@ -36,13 +36,13 @@ You can start editing the page by modifying any file in your app directory. The 
 
 To cleanup side effects that might keep running after invalidation e.g setTimeout
 
-create a function named \__sserver_cleanup_`${module}` containing how to cleanup side effect and sserver will call it automatically
+create a function named \__tserver_cleanup_`${module}` containing how to cleanup side effect and tserver will call it automatically
 
 # How it works
 
 ```ts
 const module = change.replace("/", "").replace(".js", "");
-const cleanup = `__sserver_cleanup_${module}`;
+const cleanup = `__tserver_cleanup_${module}`;
 typeof (window as any)[cleanup] !== "undefined" &&
   await(window as any)[cleanup]();
 ```

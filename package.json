@@ -1,20 +1,35 @@
 {
-  "name": "sserver",
+  "name": "t-server",
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
+  "author": "Tobiloba Adebisi <ti.adebisi@gmail.com> (https://tobiloba.me/portfolio)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Adebisi1234/tserver.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Adebisi1234/tserver/my_package/issues"
+  },
+  "homepage": "https://github.com/Adebisi1234/tserver/my_package",
   "scripts": {
     "pretest": "tsc",
     "test": "node ./dist/index.js",
     "preinstall": "tsc"
   },
   "bin": {
-    "sserver": "./dist/index.js"
+    "tserver": "./dist/index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "server",
+    "hmr",
+    "webserver",
+    "websocket",
+    "local-development",
+    "hmr-support"
+  ],
+  "license": "MIT",
+  "description": "A simple static web server. Supports HMR, Made to be used mostly locally",
   "dependencies": {
     "chalk": "^5.3.0",
     "commander": "^12.1.0",
