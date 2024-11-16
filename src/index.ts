@@ -5,7 +5,7 @@ import fsPromise from "fs/promises";
 import fs from "fs";
 import path from "path";
 const app = express();
-import { WebSockehmrServer } from "ws";
+import { WebSocketServer } from "ws";
 import Watcher from "watcher";
 import { hmrPayload } from "./types/payload.js";
 import compression from "compression";
@@ -187,7 +187,7 @@ const server = await httpServerStart(app, port);
 //   }
 // });
 // Websocket initialization
-const wss = new WebSockehmrServer({ server });
+const wss = new WebSocketServer({ server });
 
 wss.on("connection", function connection(ws) {
   ws.on("error", console.error);

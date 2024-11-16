@@ -1,6 +1,6 @@
 {
   "name": "hmr-server",
-  "version": "2.0.1",
+  "version": "2.0.4",
   "main": "index.js",
   "type": "module",
   "author": "Tobiloba Adebisi <ti.adebisi@gmail.com> (https://tobiloba.me/portfolio)",
@@ -13,9 +13,7 @@
   },
   "homepage": "https://github.com/Adebisi1234/hmrServer/my_package",
   "scripts": {
-    "pretest": "tsc",
-    "test": "node ./dist/index.js",
-    "preinstall": "tsc"
+    "test": "node ./dist/index.js"
   },
   "bin": {
     "hmrServer": "./dist/index.js"
