@@ -1,22 +1,22 @@
 {
-  "name": "hmr-server",
+  "name": "sweet-server",
   "version": "2.0.4",
   "main": "index.js",
   "type": "module",
   "author": "Tobiloba Adebisi <ti.adebisi@gmail.com> (https://tobiloba.me/portfolio)",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Adebisi1234/hmrServer.git"
+    "url": "https://github.com/Adebisi1234/sserver.git"
   },
   "bugs": {
-    "url": "https://github.com/Adebisi1234/hmrServer/my_package/issues"
+    "url": "https://github.com/Adebisi1234/sserver/my_package/issues"
   },
-  "homepage": "https://github.com/Adebisi1234/hmrServer/my_package",
+  "homepage": "https://github.com/Adebisi1234/sserver/my_package",
   "scripts": {
     "test": "node ./dist/index.js"
   },
   "bin": {
-    "hmrServer": "./dist/index.js"
+    "sserver": "./dist/index.js"
   },
   "keywords": [
     "server",

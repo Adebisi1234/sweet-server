@@ -9,24 +9,24 @@
 First, install globally:
 
 ```bash
-npm i -g hmrServer
+npm i -g sweet-server
 ```
 
 Go to your project root directory and start the server there
 
 ```bash
-hmrServer
+sserver
 ```
 
 ![Example image](./example.png)
 
 ## Options
 
-| Option         | Argument                                              | Default |
-| -------------- | ----------------------------------------------------- | ------- |
-| `-p, --port`   | Specify which port hmrServer should run on e.g `4001` | `6001`  |
-| `-m, --mode`   | Specify server reload mode `hmr` or `no-hmr`          | `hmr`   |
-| `-g, --global` | Save other passed options as default                  |         |
+| Option         | Argument                                            | Default |
+| -------------- | --------------------------------------------------- | ------- |
+| `-p, --port`   | Specify which port sserver should run on e.g `4001` | `6001`  |
+| `-m, --mode`   | Specify server reload mode `hmr` or `no-hmr`        | `hmr`   |
+| `-g, --global` | Save other passed options as default                |         |
 
 Open [http://localhost:6001](http://localhost:6001) with your browser to see the result.
 
@@ -36,13 +36,13 @@ You can start editing the page by modifying any file in your app directory. The 
 
 To cleanup side effects that might keep running after invalidation e.g setTimeout
 
-create a function named \__hmrServer_cleanup_`${module}` containing how to cleanup side effect and hmrServer will call it automatically
+create a function named \__sserver_cleanup_`${module}` containing how to cleanup side effect and sserver will call it automatically
 
 # How it works
 
 ```ts
 const module = change.replace("/", "").replace(".js", "");
-const cleanup = `__hmrServer_cleanup_${module}`;
+const cleanup = `__sserver_cleanup_${module}`;
 typeof (window as any)[cleanup] !== "undefined" &&
   await(window as any)[cleanup]();
 ```

@@ -17,7 +17,7 @@ import chalk from "chalk";
 import Conf from "conf";
 import { httpServerStart } from "./utils.js";
 
-const config = new Conf({ projectName: "hmrServer" });
+const config = new Conf({ projectName: "sserver" });
 // config.set('unicorn', '🦄');
 // console.log(config.get('unicorn'));
 // //=> '🦄'
@@ -32,14 +32,14 @@ const config = new Conf({ projectName: "hmrServer" });
 // //=> undefined
 
 program
-  .name("hmrServer")
+  .name("sserver")
   .description(
     "A simple static web server. Supports HMR, Made to be used mostly locally"
   )
   .version("1.0.0");
 
 program
-  .option("-p --port [6001]", "Specify which port hmrServer should run on")
+  .option("-p --port [6001]", "Specify which port sserver should run on")
   .option(
     "-m, --mode [hmr | no-hmr]",
     "Specify server mode hmr | no-hmr",
@@ -130,9 +130,9 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
     contents = root.toString().replace(
       "<head>",
       `<head>
-      <!-- Injected by hmrServer -->
+      <!-- Injected by sserver -->
       <script>
-        window.__hmrServerPort = ${port}
+        window.__sserverPort = ${port}
         window.moduleSrcStore = ${JSON.stringify(moduleSrcStore)}
       </script>
       <script src="/hmr.js" type='module'></script>
@@ -143,7 +143,7 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
     // Accounting for html files with no head tag
     contents = contents.replace(
       "</body>",
-      `<!-- Injected by hmrServer -->
+      `<!-- Injected by sserver -->
       <script src="/hmr.js" type='module'></script>
       </body>`
     );
@@ -215,13 +215,13 @@ watcher.on("change", async (event) => {
     if (mode === "hmr") {
       const split = event.split("/");
       const path: string = split[split.length - 1];
-      console.log(
-        chalk.yellow(
-          `changes detected in `,
-          `${chalk.bold(path)} reloading module`
-        )
-      );
       if (path.endsWith(".css")) {
+        console.log(
+          chalk.yellow(
+            `changes detected in `,
+            `${chalk.bold(path)} reloading styles`
+          )
+        );
         wss.clients.forEach(function each(client) {
           client.send(
             JSON.stringify({
@@ -233,7 +233,12 @@ watcher.on("change", async (event) => {
           ); // just use json no need to create my own binary protocol
         });
       } else if (path.endsWith(".js")) {
-        console.log(path);
+        console.log(
+          chalk.yellow(
+            `changes detected in `,
+            `${chalk.bold(path)} reloading module`
+          )
+        );
         const paths = await invalidatedModuleList(path);
         if (!paths || paths.length === 0) {
           wss.clients.forEach(function each(client) {

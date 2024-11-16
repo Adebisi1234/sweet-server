@@ -1,6 +1,6 @@
 document.addEventListener("error", (event) => {
   console.error(event);
-  console.log("[hmrServer] Error occurred");
+  console.log("[sserver] Error occurred");
 });
 
 import main from "./hmr-context.js";
@@ -9,7 +9,7 @@ import type { hmrPayload } from "./types/payload.js";
 declare global {
   interface Window {
     moduleSrcStore: string[];
-    __hmrServerPort: number;
+    __sserverPort: number;
   }
 }
 
@@ -21,16 +21,16 @@ if (typeof window.WebSocket === "undefined") {
   //Support other protocol maybe later
 }
 
-const ws = new WebSocket(`ws://localhost:${window.__hmrServerPort}`);
+const ws = new WebSocket(`ws://localhost:${window.__sserverPort}`);
 
 ws.addEventListener("message", async ({ data }) => {
   handleEvent(JSON.parse(data));
 });
 ws.addEventListener("open", async () => {
-  console.log("Connected to hmrServer");
+  console.log("Connected to sserver");
 });
 ws.addEventListener("error", async () => {
-  console.log("[hmrServer] Error");
+  console.log("[sserver] Error");
 });
 ws.addEventListener("close", async () => {
   console.log("Connection closed");
@@ -63,7 +63,7 @@ function handleEvent(event: hmrPayload) {
     //   alertListener(event);
     //   break;
     case "error":
-      alert("[hmrServer] Error occurred");
+      alert("[sserver] Error occurred");
       console.error(event);
       break;
   }
@@ -110,7 +110,7 @@ function getAndUpdateScript(event: hmrPayload) {
   setTimeout(async () => {
     changes.forEach(async (change) => {
       const module = change.replace("/", "").replace(".js", "");
-      const cleanup = `__hmrServer_cleanup_${module}`;
+      const cleanup = `__sserver_cleanup_${module}`;
       typeof (window as any)[cleanup] !== "undefined" &&
         (await (window as any)[cleanup]());
     });
@@ -121,7 +121,7 @@ function getAndUpdateScript(event: hmrPayload) {
 
 function handleWarnings(event: hmrPayload) {
   console.warn(
-    `[hmrServer] Error: can't properly monitor changes in the following paths ${JSON.stringify(
+    `[sserver] Error: can't properly monitor changes in the following paths ${JSON.stringify(
       event.paths
     )}, changes in this files will cause full-reload`
   );
