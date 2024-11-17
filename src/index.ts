@@ -144,7 +144,12 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
     contents = contents.replace(
       "</body>",
       `<!-- Injected by sserver -->
+      <script>
+        window.__sserverPort = ${port}
+        window.moduleSrcStore = ${JSON.stringify(moduleSrcStore)}
+      </script>
       <script src="/hmr.js" type='module'></script>
+      <script src="/hmr-context.js" type="module"></script>
       </body>`
     );
   }
