@@ -1,6 +1,6 @@
 {
   "name": "sweet-server",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "main": "index.js",
   "type": "module",
   "author": "Tobiloba Adebisi <ti.adebisi@gmail.com> (https://tobiloba.me/portfolio)",
