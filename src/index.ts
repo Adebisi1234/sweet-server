@@ -85,51 +85,61 @@ app.get("/", addHmrModuleToDOM);
 app.get("*.html", addHmrModuleToDOM);
 
 app.get("/hmr.js", async (req, res) => {
-  const filePath = new URL("./hmr.js", import.meta.url);
+  try {
+    const filePath = new URL("./hmr.js", import.meta.url);
 
-  let hmr = await fsPromise.readFile(filePath, { encoding: "utf8" });
-  const contentType = mime.lookup("js");
-  res.setHeader("Content-type", contentType);
-  return res.send(hmr) as unknown as void;
+    let hmr = await fsPromise.readFile(filePath, { encoding: "utf8" });
+    const contentType = mime.lookup("js");
+    res.setHeader("Content-type", contentType);
+    return res.send(hmr) as unknown as void;
+  } catch (err) {
+    return res.send("Error occurred") as unknown as void;
+  }
 });
 app.get("/hmr-context.js", async (req, res) => {
-  const filePath = new URL("./hmr-context.js", import.meta.url);
+  try {
+    const filePath = new URL("./hmr-context.js", import.meta.url);
 
-  let hmr = await fsPromise.readFile(filePath, { encoding: "utf8" });
-  const contentType = mime.lookup("js");
-  res.setHeader("Content-type", contentType);
-  return res.send(hmr) as unknown as void;
+    let hmr = await fsPromise.readFile(filePath, { encoding: "utf8" });
+    const contentType = mime.lookup("js");
+    res.setHeader("Content-type", contentType);
+    return res.send(hmr) as unknown as void;
+  } catch (err) {
+    console.log(err);
+    return res.status(404).json(`Error getting the file.`) as unknown as void;
+  }
 });
 
 // HMR support
 app.get("*.js", customStaticServer);
 async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
-  const sanitizePath = path.normalize(req.path);
-  let filePath = path.join(process.cwd(), sanitizePath);
-  if (!fs.existsSync(filePath)) {
-    // if the file is not found, return 404
+  try {
+    const sanitizePath = path.normalize(req.path);
+    let filePath = path.join(process.cwd(), sanitizePath);
+    if (!fs.existsSync(filePath)) {
+      // if the file is not found, return 404
 
-    res.status(404).send(`File ${filePath} not found!`);
-    return;
-  }
-
-  // if is a directory, then look for index.html
-  if (fs.statSync(filePath).isDirectory()) {
-    filePath += "/index.html";
-  }
-  let contents = await fsPromise.readFile(filePath, { encoding: "utf8" });
-  const root = parse(contents);
-  const moduleSrcStore: string[] = [];
-  root.querySelectorAll("script[type='module']").forEach((script) => {
-    if (script.getAttribute("src")) {
-      moduleSrcStore.push(script.getAttribute("src")!);
+      res.status(404).send(`File ${filePath} not found!`);
+      return;
     }
-    script.remove();
-  });
-  if (contents.includes("<head>")) {
-    contents = root.toString().replace(
-      "<head>",
-      `<head>
+
+    // if is a directory, then look for index.html
+    if (fs.statSync(filePath).isDirectory()) {
+      filePath += "/index.html";
+    }
+    let contents = await fsPromise.readFile(filePath, { encoding: "utf8" });
+    const root = parse(contents);
+    const moduleSrcStore: string[] = [];
+    root.querySelectorAll("script[type='module']").forEach((script) => {
+      if (script.getAttribute("src")) {
+        moduleSrcStore.push(script.getAttribute("src")!);
+      }
+      script.remove();
+    });
+    if (contents.includes("<head>")) {
+      contents = root.toString().replace(
+        "<head>",
+        `<head>
       <!-- Injected by sserver -->
       <script>
         window.__sserverPort = ${port}
@@ -138,17 +148,21 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
       <script src="/hmr.js" type='module'></script>
       <script src="/hmr-context.js" type="module"></script>
       `
-    );
-  } else {
-    // Accounting for html files with no head tag
-    contents = contents.replace(
-      "</body>",
-      `<!-- Injected by sserver -->
+      );
+    } else {
+      // Accounting for html files with no head tag
+      contents = contents.replace(
+        "</body>",
+        `<!-- Injected by sserver -->
       <script src="/hmr.js" type='module'></script>
       </body>`
-    );
+      );
+    }
+    return res.send(contents) as unknown as void;
+  } catch (err) {
+    console.log(err);
+    return res.status(404).json(`Error getting the file.`) as unknown as void;
   }
-  return res.send(contents) as unknown as void;
 }
 async function customStaticServer(req: Request, res: Response) {
   try {

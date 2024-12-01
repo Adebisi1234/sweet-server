@@ -1,5 +1,5 @@
 const name = document.getElementById("name");
 if (name) {
-    name.textContent = "Tobiloba";
+    name.textContent = "Isaiah";
 }
 export {};
