@@ -9,9 +9,9 @@
     "url": "https://github.com/Adebisi1234/sserver.git"
   },
   "bugs": {
-    "url": "https://github.com/Adebisi1234/sserver/my_package/issues"
+    "url": "https://github.com/Adebisi1234/sserver/issues"
   },
-  "homepage": "https://github.com/Adebisi1234/sserver/my_package",
+  "homepage": "https://github.com/Adebisi1234/sserver",
   "scripts": {
     "test": "node ./dist/index.js"
   },
