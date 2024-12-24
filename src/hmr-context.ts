@@ -9,7 +9,11 @@ export default async function main(
       (src) =>
         import(
           changes?.includes(src)
-            ? absolutePath + src + `?t=${Date.now()}`
+            ? src.includes(absolutePath)
+              ? src + `?t=${Date.now()}`
+              : absolutePath + src + `?t=${Date.now()}`
+            : src.includes(absolutePath)
+            ? src
             : absolutePath + src
         )
     )
