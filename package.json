@@ -30,13 +30,13 @@
   "description": "A simple static web server. Supports HMR, Made to be used mostly locally",
   "dependencies": {
     "chalk": "^5.3.0",
+    "chokidar": "^4.0.3",
     "commander": "^12.1.0",
     "compression": "^1.7.4",
     "conf": "^13.0.1",
     "esbuild": "^0.24.0",
     "express": "^4.21.1",
     "node-html-parser": "^6.1.13",
-    "watcher": "^2.3.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {

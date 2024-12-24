@@ -1,0 +1,31 @@
+.sserver .open a,
+.sserver p {
+  display: flex;
+  gap: 4px;
+  height: 16px;
+}
+.sserver a img,
+.sserver a svg {
+  display: inline-block;
+  height: 16px;
+  width: 16px;
+}
+
+.sserver li {
+  list-style: none;
+}
+.sserver li.open {
+  list-style-type: disclosure-open;
+}
+.sserver li.closed {
+  list-style-type: disclosure-closed;
+}
+
+.sserver li {
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+
+.sserver li.closed ul {
+  display: none;
+}
