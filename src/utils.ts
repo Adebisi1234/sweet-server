@@ -39,7 +39,7 @@ export async function hostedHttpServerStart(
   localIp: string,
   port: number
 ): Promise<any> {
-  const initialPort = port;
+  const initialPort = ++port;
   return new Promise((resolve, reject) => {
     const server = httpServer.listen(port, localIp, () => {
       console.log(

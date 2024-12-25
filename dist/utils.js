@@ -23,7 +23,7 @@ export async function httpServerStart(httpServer, port) {
     });
 }
 export async function hostedHttpServerStart(httpServer, localIp, port) {
-    const initialPort = port;
+    const initialPort = ++port;
     return new Promise((resolve, reject) => {
         const server = httpServer.listen(port, localIp, () => {
             console.log(chalk.greenBright(`Network:`, `${chalk.bold(`${localIp}:${port}`)}...`));

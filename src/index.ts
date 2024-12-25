@@ -222,7 +222,7 @@ app.use(express.static(process.cwd()));
 
 const server = await httpServerStart(app, port);
 if (host) {
-  const hostedServer = await hostedHttpServerStart(app, localIp, port);
+  await hostedHttpServerStart(app, localIp, port);
 }
 
 // Websocket initialization

@@ -27,6 +27,7 @@ sserver
 | `-p, --port`   | Specify which port sserver should run on e.g `4001` | `6001`  |
 | `-m, --mode`   | Specify server reload mode `hmr` or `no-hmr`        | `hmr`   |
 | `-g, --global` | Save other passed options as default                |         |
+| `-h, --host`   | Access your application over local network          |         |
 
 Open [http://localhost:6001](http://localhost:6001) with your browser to see the result.
 
