@@ -15,8 +15,20 @@ import { parse } from "node-html-parser";
 import { program } from "commander";
 import chalk from "chalk";
 import Conf from "conf";
-import { httpServerStart } from "./utils.js";
+import { hostedHttpServerStart, httpServerStart } from "./utils.js";
 import { spawn } from "child_process";
+import { networkInterfaces } from "os";
+const localIp = Object.values(networkInterfaces()).reduce(
+  (r: any[], list: any) =>
+    r.concat(
+      list.reduce(
+        (rr: any[], i: any) =>
+          rr.concat((i.family === "IPv4" && !i.internal && i.address) || []),
+        []
+      )
+    ),
+  []
+)[0];
 
 const config = new Conf({ projectName: "sserver" });
 
@@ -34,7 +46,8 @@ program
     "Specify server mode hmr | no-hmr",
     "hmr"
   )
-  .option("-g --global", "Set all env passed as global");
+  .option("-g --global", "Set all env passed as global")
+  .option("-h --host", "Access your app over local network");
 
 program.parse();
 
@@ -49,7 +62,7 @@ if (options.global) {
     }
   }
 }
-
+const host = options.host;
 const port = Number(
   options.port && typeof options.port !== "boolean"
     ? options.port
@@ -208,6 +221,9 @@ async function customStaticServer(req: Request, res: Response) {
 app.use(express.static(process.cwd()));
 
 const server = await httpServerStart(app, port);
+if (host) {
+  const hostedServer = await hostedHttpServerStart(app, localIp, port);
+}
 
 // Websocket initialization
 const wss = new WebSocketServer({ server });
