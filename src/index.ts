@@ -181,7 +181,6 @@ async function addHmrModuleToDOM(req: express.Request, res: express.Response) {
 async function customStaticServer(req: Request, res: Response) {
   try {
     const sanitizePath = path.normalize(req.path);
-    console.log(req.url, req.path, sanitizePath);
     let pathname = path.join(process.cwd(), sanitizePath);
     if (!fs.existsSync(pathname)) {
       // if the file is not found, return 404
@@ -232,7 +231,6 @@ watcher.on("ready", () => {
 });
 
 watcher.on("change", async (event) => {
-  console.log("event");
   try {
     const pathname: string = path.relative(process.cwd(), event);
     if (pathname.endsWith(".ts")) {
