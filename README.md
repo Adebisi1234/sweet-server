@@ -51,6 +51,6 @@ typeof (window as any)[cleanup] !== "undefined" &&
 # TODO
 
 - Add a way to persist state between replacements
-- Typescript support
-- fallback for wrong directory
+- Typescript support ✔️
+- fallback for wrong directory ✔️
 - option to specify working directory
